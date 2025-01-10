@@ -1,4 +1,5 @@
 1. Add all .txt files in folder
+2. Change terminal number for which need to extract data (matchingTerminalString = "20049109")
 2. Install python and it's libraries *pip install openpyxl*
 3. Open cmd as administrator and go to the path like C:\SoftPosTxnReadingScript
 4. Run command python script.py i.e C:\SoftPosTxnReadingScript>python script.py
