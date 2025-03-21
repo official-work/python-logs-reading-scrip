@@ -13,12 +13,12 @@ output_file = f"Report_{current_time}.xlsx"
 # Column names in the Excel file (must match exactly with your sheet, updated to lowercase)
 columns = [
     "SrNo", "FilePath", "DeviceSerialNumber", "RRNumber", "TxnType", "TrxStart", "CardDecryptionReq", "CardDecryptionRes",
-    "MackingReq", "MackingRes", "RequestToSP", "ResponseFromSP", "TrxEnd"
+    "MackingReq", "MackingRes", "RequestToSP", "ResponseFromSP", "TrxEnd", "TotalTime", "TotalTimeW/OSP"
 ]
 
 
 #Give terminal number for which get logs
-matchingTerminalString = "20049109"
+matchingTerminalString = "20049907"
 
 # Field mapping for regex extraction (field names to match in log files)
 patterns = {
@@ -36,6 +36,39 @@ patterns = {
 }
 
 timePattern = re.compile(r"(\d{2}:\d{2}:\d{2}),(\d{3})")
+
+
+# Helper function to calculate TotalTime and TotalTimeW/OSP
+def calculate_times(row):
+    # Convert timestamps to datetime objects
+    def parse_time(time_str):
+        if not time_str:
+            return None
+        return datetime.strptime(time_str, "%H:%M:%S.%f")
+
+    # Extract timestamps from the row
+    trx_start = parse_time(row.get("TrxStart"))
+    request_to_sp = parse_time(row.get("RequestToSP"))
+    response_from_sp = parse_time(row.get("ResponseFromSP"))
+    trx_end = parse_time(row.get("TrxEnd"))
+
+    # Calculate TotalTimeW/OSP
+    if trx_start and request_to_sp and response_from_sp and trx_end:
+        total_time_w_osp = (trx_end - trx_start) - (response_from_sp - request_to_sp)
+    else:
+        total_time_w_osp = None
+
+    # Calculate TotalTime
+    if trx_start and trx_end:
+        total_time = trx_end - trx_start
+    else:
+        total_time = None
+
+    # Format results as strings
+    return (
+        str(total_time) if total_time else "",
+        str(total_time_w_osp) if total_time_w_osp else ""
+    )
 
 # Helper function to process the log file
 srNo = 1  # Initialize the serial number counter
@@ -120,6 +153,11 @@ def process_log_file(file_path):
             if not row.get("RRNumber"):
                 row = {}  # Reset the row
                 continue
+
+            # Calculate TotalTime and TotalTimeW/OSP for the row
+            total_time, total_time_w_osp = calculate_times(row)
+            row["TotalTime"] = total_time
+            row["TotalTimeW/OSP"] = total_time_w_osp
 
             # Add the completed row to the data list
             data.append(row)
