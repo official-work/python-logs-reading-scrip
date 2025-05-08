@@ -10,7 +10,7 @@ os.makedirs("TerminalExports", exist_ok=True)
 # Paths
 log_folder = "logs"  # Folder where .txt files are located
 
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
+current_time = str(int(datetime.now().timestamp() * 1000))
 output_file = f"Report_{current_time}.xlsx"
 output_file = os.path.join("TerminalExports", f"All_Terminal_Report_{current_time}.xlsx")
 

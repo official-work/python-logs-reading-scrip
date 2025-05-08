@@ -10,7 +10,7 @@ os.makedirs("Exports", exist_ok=True)
 
 # Configuration
 log_folder = "logs"
-current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
+current_time = str(int(datetime.now().timestamp() * 1000))
 output_file = os.path.join("Exports", f"SSLFingerprint_Report_{current_time}.xlsx")
 columns = ["SrNo", "FilePath", "UserName", "LastModifiedDate"]
 
