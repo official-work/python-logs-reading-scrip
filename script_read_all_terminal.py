@@ -3,11 +3,15 @@ from datetime import datetime
 import re
 from openpyxl import load_workbook, Workbook
 
+#Create folder if not exists
+os.makedirs("TerminalExports", exist_ok=True)
+
 # Paths
 log_folder = "logs"  # Folder where .txt files are located
 
 current_time = datetime.now().strftime("%Y%m%d_%H%M%S")  # Format: YYYYMMDD_HHMMSS
-output_file = f"Report_{current_time}.xlsx"
+#output_file = f"Report_{current_time}.xlsx"
+output_file = os.path.join("TerminalExports", f"Single_Terminal_Report_{current_time}.xlsx")
 
 # Column names in the Excel file (must match exactly with your sheet, updated to lowercase)
 columns = [
