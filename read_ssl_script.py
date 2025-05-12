@@ -66,14 +66,9 @@ def process_requests(file_path, user_data, sr_counter):
                     except ValueError:
                         response_datetime = raw_datetime  # Fallback in case of parsing issue
 
-                try:
-                    response_json = json.loads(json_str)
-                except json.JSONDecodeError:
-                    response_json = {}
-
                 if username in user_data:
                     user_data[username]["ResponseTime"] = response_datetime
-                    user_data[username]["ResponseData"] = json.dumps(response_json, ensure_ascii=False)
+                    user_data[username]["ResponseData"] = json_str
 
     return sr_counter
 
