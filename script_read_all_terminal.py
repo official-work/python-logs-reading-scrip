@@ -11,7 +11,7 @@ log_folder = "logs"  # Folder where .txt files are located
 
 current_time = str(int(datetime.now().timestamp() * 1000))
 #output_file = f"Report_{current_time}.xlsx"
-output_file = os.path.join("TerminalExports", f"Single_Terminal_Report_{current_time}.xlsx")
+output_file = os.path.join("TerminalExports", f"All_Terminal_Report_{current_time}.xlsx")
 
 # Column names in the Excel file (must match exactly with your sheet, updated to lowercase)
 columns = [
@@ -21,9 +21,6 @@ columns = [
 
 # Columns to leave blank (empty strings)
 blank_columns = ["RRNumber"]
-
-# Matching string
-matchingTerminalString = "20049729"
 
 # Field mapping for regex extraction (field names to match in log files)
 patterns = {
