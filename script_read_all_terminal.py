@@ -24,7 +24,8 @@ blank_columns = ["RRNumber"]
 
 # Field mapping for regex extraction (field names to match in log files)
 patterns = {
-    "TrxStart": re.compile(r'Request Received: Sale'),
+    #"TrxStart": re.compile(r'Request Received: Sale'),
+    "TrxStart": re.compile(r'Request Received: '), # Adjusted to match any transaction type with Prasana
     "DeviceSerialNumber": re.compile(r'"deviceSerialNo":"([^"]+)"'),  # Extract from "Transaction Started" line
     "RRNumber": re.compile(r'"rrNumber":"([^"]+)"'),
     "CardDecryptionReq": re.compile(r'Request Sent to HSM for Card details'),
