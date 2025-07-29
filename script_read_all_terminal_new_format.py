@@ -150,7 +150,7 @@ def process_log_file(file_path):
 
             # Add the completed row to the data list
             data.append(row)
-            processed_serial_numbers.add(device_serial_no)  # Mark serial number as processed
+            #processed_serial_numbers.add(device_serial_no)  # Mark serial number as processed
             row = {}  # Reset the row for the next transaction
 
     return data
