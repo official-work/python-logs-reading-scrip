@@ -15,7 +15,7 @@ output_file = os.path.join("TerminalExports", f"All_Terminal_Report_{current_tim
 
 # Column names in the Excel file (must match exactly with your sheet, updated to lowercase)
 columns = [
-    "SrNo", "DeviceSerialNumber", "RRNumber", "TrxStart", "CardDecryptionReq", "CardDecryptionRes",
+    "SrNo", "TxnType", "SubTxnType", "DeviceSerialNumber", "RRNumber", "TrxStart", "CardDecryptionReq", "CardDecryptionRes",
     "MackingReq", "MackingRes", "RequestToSP", "ResponseFromSP", "TrxEnd", "TotalTime", "TotalTimeW/OSP"
 ]
 
@@ -26,6 +26,8 @@ blank_columns = ["RRNumber"]
 patterns = {
     #"TrxStart": re.compile(r'Request Received: Sale'),
     "TrxStart": re.compile(r'Request Received: '), # Adjusted to match any transaction type with Prasana
+    "TxnType": re.compile(r'"txnType":"([^"]+)"'), # TxnType can be Sale, Refund, Void, etc.
+    "SubTxnType": re.compile(r'"subTxnType":"([^"]+)"'), # This will match any transaction type
     "DeviceSerialNumber": re.compile(r'"deviceSerialNo":"([^"]+)"'),  # Extract from "Transaction Started" line
     "RRNumber": re.compile(r'"rrNumber":"([^"]+)"'),
     "CardDecryptionReq": re.compile(r'Request Sent to HSM for Card details'),
@@ -88,6 +90,18 @@ def process_log_file(file_path):
     timePattern = re.compile(r"(\d{2}:\d{2}:\d{2}),(\d{3})")
 
     for line in lines:
+
+        #add TxnType and SubTxnType to the row if they are present
+        TxnType = re.search(patterns["TxnType"], line)
+        if TxnType:
+            row["TxnType"] = TxnType.group(1) # Add TxnType to the row
+            #continue
+
+        SubTxnType = re.search(patterns["SubTxnType"], line)
+        if SubTxnType:
+            row["SubTxnType"] = SubTxnType.group(1) # Add SubTxnType to the row
+            #continue
+
         # Check for "Transaction Started" marker
         start_match = re.search(patterns["TrxStart"], line)
         if start_match:
