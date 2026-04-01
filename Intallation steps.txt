@@ -1,0 +1,10 @@
+It is window base installation process
+
+1. Install the latest Python version – Download and install the newest stable release from python.org.
+2. Remove old Python versions – Uninstall any previous installations to avoid conflicts.
+
+
+3. Verify installation – Run "python --version" to confirm the correct version is active.
+4. Create a virtual environment – Run "python -m venv venv".
+5. Activate the environment – Run "venv\Scripts\activate".
+6. Install dependencies – Run "pip install -r requirements.txt".
