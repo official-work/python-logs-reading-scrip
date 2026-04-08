@@ -19,9 +19,6 @@ columns = [
     "MackingReq", "MackingRes", "RequestToSP", "ResponseFromSP", "TrxEnd", "TotalTime", "TotalTimeW/OSP"
 ]
 
-# Columns to leave blank (empty strings)
-blank_columns = ["RRNumber"]
-
 # Field mapping for regex extraction (field names to match in log files)
 patterns = {
     #"TrxStart": re.compile(r'Request Received: Sale'),
@@ -40,6 +37,7 @@ patterns = {
 }
 
 timePattern = re.compile(r"(\d{2}:\d{2}:\d{2}),(\d{3})")
+UUID_PATTERN = re.compile(r'\[([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\]')
 
 # Helper function to calculate TotalTime and TotalTimeW/OSP
 def calculate_times(row):
@@ -73,99 +71,96 @@ def calculate_times(row):
         str(total_time_w_osp) if total_time_w_osp else ""
     )
 
+
+# Process all log lines belonging to a single transaction UUID
+def process_transaction(lines):
+    row = {}
+    has_trx_start = False
+
+    for line in lines:
+        # TxnType / SubTxnType — first match wins
+        if "TxnType" not in row:
+            m = re.search(patterns["TxnType"], line)
+            if m:
+                row["TxnType"] = m.group(1)
+
+        if "SubTxnType" not in row:
+            m = re.search(patterns["SubTxnType"], line)
+            if m:
+                row["SubTxnType"] = m.group(1)
+
+        # DeviceSerialNumber — first match wins
+        if "DeviceSerialNumber" not in row:
+            m = re.search(patterns["DeviceSerialNumber"], line)
+            if m:
+                row["DeviceSerialNumber"] = m.group(1)
+
+        # RRNumber — first match wins (covers Request JSON, Response JSON, and post-TrxEnd lines)
+        if "RRNumber" not in row:
+            m = re.search(patterns["RRNumber"], line)
+            if m:
+                row["RRNumber"] = m.group(1)
+
+        # TrxStart
+        if re.search(patterns["TrxStart"], line):
+            has_trx_start = True
+            t = timePattern.search(line)
+            if t:
+                row["TrxStart"] = f"{t.group(1)}.{t.group(2)}"
+
+        # Time-stamped fields — first match wins
+        for col in ["CardDecryptionReq", "CardDecryptionRes", "MackingReq",
+                    "MackingRes", "RequestToSP", "ResponseFromSP", "TrxEnd"]:
+            if col not in row:
+                m = re.search(patterns[col], line)
+                if m:
+                    t = timePattern.search(line)
+                    if t:
+                        row[col] = f"{t.group(1)}.{t.group(2)}"
+
+    if not has_trx_start or not row.get("DeviceSerialNumber"):
+        return None
+
+    total_time, total_time_w_osp = calculate_times(row)
+    row["TotalTime"] = total_time
+    row["TotalTimeW/OSP"] = total_time_w_osp
+    return row
+
+
 # Helper function to process the log file
 srNo = 1  # Initialize the serial number counter
 def process_log_file(file_path):
     global srNo  # Declare srNo as global to modify its value across function calls
 
-    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:  # Use 'ignore' to skip errors
+    with open(file_path, 'r', encoding='utf-8', errors='ignore') as file:
         lines = file.readlines()
 
-    data = []
-    processed_serial_numbers = set()  # Keep track of processed DeviceSerialNumbers
-    row = {}  # A single row to accumulate data between markers
-    writing_started = False  # Flag to indicate when data should be written
-
-    # Updated time pattern to include milliseconds
-    timePattern = re.compile(r"(\d{2}:\d{2}:\d{2}),(\d{3})")
+    # Group lines by transaction UUID to handle multi-threaded interleaving
+    transactions = {}       # uuid -> list of lines (preserves line order)
+    first_timestamps = {}   # uuid -> first seen timestamp (for chronological sort)
 
     for line in lines:
-
-        #add TxnType and SubTxnType to the row if they are present
-        TxnType = re.search(patterns["TxnType"], line)
-        if TxnType:
-            row["TxnType"] = TxnType.group(1) # Add TxnType to the row
-            #continue
-
-        SubTxnType = re.search(patterns["SubTxnType"], line)
-        if SubTxnType:
-            row["SubTxnType"] = SubTxnType.group(1) # Add SubTxnType to the row
-            #continue
-
-        # Check for "Transaction Started" marker
-        start_match = re.search(patterns["TrxStart"], line)
-        if start_match:
-            writing_started = True  # Start processing data
-            row = {"SrNo": srNo}  # Initialize a new row with the serial number
-            srNo += 1  # Increment serial number for the next row
-            
-            # Extract timestamp for "Transaction Started" if available
-            time_match = timePattern.search(line)
-            if time_match:
-                hours_minutes_seconds = time_match.group(1)  # "HH:mm:ss"
-                milliseconds = time_match.group(2)  # "563"
-                formatted_time = f"{hours_minutes_seconds}.{milliseconds}"  # Replace ',' with '.'
-                row["TrxStart"] = formatted_time  # Add the formatted timestamp
-            
+        m = UUID_PATTERN.search(line)
+        if not m:
             continue
+        uuid = m.group(1)
+        if uuid not in transactions:
+            transactions[uuid] = []
+            t = timePattern.search(line)
+            if t:
+                first_timestamps[uuid] = f"{t.group(1)}.{t.group(2)}"
+        transactions[uuid].append(line)
 
-        device_number = re.search(patterns["DeviceSerialNumber"], line)
-        if device_number:
-            device_serial_no = device_number.group(1)
-            row["DeviceSerialNumber"] = device_serial_no  # Add DeviceSerialNumber to the row
-            continue
+    # Sort UUIDs by first-seen timestamp to preserve chronological order
+    sorted_uuids = sorted(transactions, key=lambda u: first_timestamps.get(u, ""))
 
-        # Process data if writing has started
-        if writing_started:
-            for column, pattern in patterns.items():
-                if column in ["DeviceSerialNumber", "TrxStart"]:
-                    continue  # Skip already processed fields
-
-                match = re.search(pattern, line)
-                if match:
-                    # Extract and store the matched value in the row
-                    if column in row:
-                        continue  # Avoid overwriting existing data
-
-                    if column in ["RRNumber"]:
-                        row[column] = match.group(1)  # Add the matched value directly
-                    else:
-                        time_match = timePattern.search(line)  # Extract time
-                        if time_match:
-                            hours_minutes_seconds = time_match.group(1)  # "HH:mm:ss"
-                            milliseconds = time_match.group(2)  # "563"
-                            formatted_time = f"{hours_minutes_seconds}.{milliseconds}"  # Replace ',' with '.'
-                            row[column] = formatted_time  # Add the formatted time to the row
-
-        # Check for "Transaction End" marker
-        if "Transaction End" in line:
-            writing_started = False  # Stop processing data
-
-            # Skip rows without DeviceSerialNumber or duplicate rows
-            device_serial_no = row.get("DeviceSerialNumber", "")
-            if not device_serial_no or device_serial_no in processed_serial_numbers:
-                row = {}  # Reset the row
-                continue
-
-            # Calculate TotalTime and TotalTimeW/OSP for the row
-            total_time, total_time_w_osp = calculate_times(row)
-            row["TotalTime"] = total_time
-            row["TotalTimeW/OSP"] = total_time_w_osp
-
-            # Add the completed row to the data list
+    data = []
+    for uuid in sorted_uuids:
+        row = process_transaction(transactions[uuid])
+        if row:
+            row["SrNo"] = srNo
+            srNo += 1
             data.append(row)
-            #processed_serial_numbers.add(device_serial_no)  # Mark serial number as processed
-            row = {}  # Reset the row for the next transaction
 
     return data
 
@@ -181,17 +176,17 @@ def write_to_excel(data, output_file):
         wb = Workbook()
         ws = wb.active
         ws.title = "Transaction Data"
-    
+
     # Write the header row (columns)
     for col_idx, col in enumerate(columns, start=1):
         ws.cell(row=1, column=col_idx, value=col)  # Writing the header in row 1
-    
+
     # Write the data starting from row 2 (skip the header row)
     start_row = 2  # We want to start inserting data from row 2
     for idx, row in enumerate(data, start=start_row):
         for col_idx, col in enumerate(columns, start=1):
             ws.cell(row=idx, column=col_idx, value=row.get(col, ""))
-    
+
     # Save the workbook (it won't overwrite the headers)
     wb.save(output_file)
     print(f"Data written to {output_file}")
